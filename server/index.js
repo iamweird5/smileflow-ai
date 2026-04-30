@@ -1,4 +1,4 @@
-  // ==========================
+// ==========================
 // SmileFlow Backend Server
 // ==========================
 
@@ -33,6 +33,10 @@ if (!process.env.MONGO_URI) {
 app.get("/", (req, res) => {
   res.send("SmileFlow API is running 🚀");
 });
+
+const appointmentRoutes = require("./routes/appointmentRoutes");
+
+app.use("/api/appointments", appointmentRoutes);
 
 // Health check route
 app.get("/health", (req, res) => {
