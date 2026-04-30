@@ -26,6 +26,11 @@ if (!process.env.MONGO_URI) {
 }
 
 // ==========================
+// Routes Import
+// ==========================
+const appointmentRoutes = require("./routes/appointmentRoutes");
+
+// ==========================
 // Routes
 // ==========================
 
@@ -33,10 +38,6 @@ if (!process.env.MONGO_URI) {
 app.get("/", (req, res) => {
   res.send("SmileFlow API is running 🚀");
 });
-
-const appointmentRoutes = require("./routes/appointmentRoutes");
-
-app.use("/api/appointments", appointmentRoutes);
 
 // Health check route
 app.get("/health", (req, res) => {
@@ -47,6 +48,9 @@ app.get("/health", (req, res) => {
   });
 });
 
+// Appointment routes
+app.use("/api/appointments", appointmentRoutes);
+
 // ==========================
 // Database Connection
 // ==========================
@@ -55,7 +59,6 @@ mongoose
   .then(() => {
     console.log("✅ MongoDB connected");
 
-    // Start server ONLY after DB connects
     const PORT = process.env.PORT || 10000;
 
     app.listen(PORT, () => {
