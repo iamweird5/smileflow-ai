@@ -1,80 +1,78 @@
-console.log("📅 Appointment routes initialized");
-
 const express = require("express");
 const router = express.Router();
 const Appointment = require("../models/Appointment");
 
 /**
- * TEST ROUTE
- */
-router.get("/test", (req, res) => {
-  res.json({ message: "Appointment route working" });
-});
-
-/**
- * CREATE APPOINTMENT
+ * 📅 CREATE APPOINTMENT (FORM + AI SAFE)
  */
 router.post("/book", async (req, res) => {
   try {
-    const { name, phone, email, date, time, reason } = req.body;
-
-    // 🔴 VALIDATION
-    if (!name || !phone || !date || !time) {
-      return res.status(400).json({
-        success: false,
-        message: "Name, phone, date, and time are required"
-      });
-    }
-
-    // 🔴 DATE/TIME VALIDATION
-    const now = new Date();
-    const selectedDateTime = new Date(`${date}T${time}`);
-
-    if (isNaN(selectedDateTime.getTime())) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid date or time format"
-      });
-    }
-
-    // 🚨 IMPORTANT FIX: STOP EXECUTION HERE
-    if (selectedDateTime < now) {
-      return res.status(400).json({
-        success: false,
-        message: "Cannot book past date/time"
-      });
-    }
-
-    // 🔴 SLOT CHECK
-    const existing = await Appointment.findOne({ date, time });
-
-    if (existing) {
-      return res.status(409).json({
-        success: false,
-        message: "This time slot is already booked"
-      });
-    }
-
-    // 🔴 CREATE APPOINTMENT
-    const appointment = await Appointment.create({
+    const {
+      clinicId,
       name,
       phone,
-      email: email || "",
+      email,
       date,
       time,
-      reason: reason || ""
+      reason
+    } = req.body;
+
+    // ✅ fallback for old frontend (IMPORTANT)
+    const finalClinicId = clinicId || "default_clinic";
+
+    if (!date || !time) {
+      return res.status(400).json({
+        success: false,
+        message: "Date and time are required"
+      });
+    }
+
+    // ❌ block past booking
+    const now = new Date();
+    const selected = new Date(`${date}T${time}`);
+
+    if (selected < now) {
+      return res.status(400).json({
+        success: false,
+        message: "Cannot book past time"
+      });
+    }
+
+    // ❌ prevent double booking (per clinic)
+    const existing = await Appointment.findOne({
+      clinicId: finalClinicId,
+      date,
+      time
     });
 
-    return res.status(201).json({
+    if (existing) {
+      return res.status(400).json({
+        success: false,
+        message: "Slot already booked"
+      });
+    }
+
+    // ✅ create appointment
+    const appointment = await Appointment.create({
+      clinicId: finalClinicId,
+      name,
+      phone,
+      email,
+      date,
+      time,
+      reason
+    });
+
+    res.json({
       success: true,
       message: "Appointment booked successfully",
       appointment
     });
 
   } catch (err) {
-    console.error("Booking error:", err);
+    console.error("BOOK ERROR:", err); // 🔥 IMPORTANT
 
-    return res.status(500).json({
+    res.status(500).json({
       success: false,
       message: "Internal server error"
     });
@@ -82,19 +80,24 @@ router.post("/book", async (req, res) => {
 });
 
 /**
- * GET ALL APPOINTMENTS
+ * 📊 GET ALL APPOINTMENTS
  */
 router.get("/", async (req, res) => {
   try {
-    const appointments = await Appointment.find().sort({ createdAt: -1 });
+    const { clinicId } = req.query;
 
-    return res.json({
-      success: true,
-      appointments
+    const filter = clinicId ? { clinicId } : {};
+
+    const appointments = await Appointment.find(filter).sort({
+      createdAt: -1
     });
 
+    res.json(appointments);
+
   } catch (err) {
-    return res.status(500).json({
+    console.error("FETCH ERROR:", err);
+
+    res.status(500).json({
       success: false,
       message: "Failed to fetch appointments"
     });
