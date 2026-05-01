@@ -1,53 +1,104 @@
-console.log("Appointment routes loaded");
+console.log("📅 Appointment routes initialized");
+
 const express = require("express");
 const router = express.Router();
 const Appointment = require("../models/Appointment");
 
+/**
+ * TEST ROUTE
+ */
 router.get("/test", (req, res) => {
-  res.json({ message: "Route working" });
+  res.json({ message: "Appointment route working" });
 });
 
-// Create appointment
+/**
+ * CREATE APPOINTMENT
+ */
 router.post("/book", async (req, res) => {
   try {
     const { name, phone, email, date, time, reason } = req.body;
 
-    const existing = await Appointment.findOne({ date, time });
-
-    if (existing) {
+    // 🔴 1. BASIC VALIDATION
+    if (!name || !phone || !date || !time) {
       return res.status(400).json({
         success: false,
-        message: "Slot already booked"
+        message: "Name, phone, date, and time are required"
       });
     }
 
+    // 🔴 2. BLOCK PAST DATE/TIME
+    const now = new Date();
+    const selectedDateTime = new Date(`${date}T${time}`);
+
+    if (isNaN(selectedDateTime.getTime())) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid date or time format"
+      });
+    }
+
+    if (selectedDateTime < now) {
+      return res.status(400).json({
+        success: false,
+        message: "Cannot book past date/time"
+      });
+    }
+
+    // 🔴 3. CHECK SLOT CONFLICT
+    const existing = await Appointment.findOne({ date, time });
+
+    if (existing) {
+      return res.status(409).json({
+        success: false,
+        message: "This time slot is already booked"
+      });
+    }
+
+    // 🔴 4. CREATE APPOINTMENT
     const appointment = await Appointment.create({
       name,
       phone,
-      email,
+      email: email || "",
       date,
       time,
-      reason
+      reason: reason || ""
     });
 
-    res.json({
+    return res.status(201).json({
       success: true,
       message: "Appointment booked successfully",
       appointment
     });
 
   } catch (err) {
-    res.status(500).json({
+    console.error("Booking error:", err);
+
+    return res.status(500).json({
       success: false,
-      message: err.message
+      message: "Internal server error"
     });
   }
 });
 
-// Get all appointments
+/**
+ * GET ALL APPOINTMENTS
+ */
 router.get("/", async (req, res) => {
-  const appointments = await Appointment.find().sort({ createdAt: -1 });
-  res.json(appointments);
+  try {
+    const appointments = await Appointment.find().sort({ createdAt: -1 });
+
+    return res.json({
+      success: true,
+      count: appointments.length,
+      appointments
+    });
+
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch appointments"
+    });
+  }
 });
 
 module.exports = router;
