@@ -1,92 +1,56 @@
-// ==========================
-// SmileFlow Backend Server
-// ==========================
-
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
 
-// ==========================
-// App Init
-// ==========================
 const app = express();
 
-// ==========================
-// Middleware
-// ==========================
 app.use(cors());
 app.use(express.json());
 
-// ==========================
-// Environment Safety Check
-// ==========================
+// ENV CHECK
 if (!process.env.MONGO_URI) {
-  console.error("❌ MONGO_URI missing in environment variables");
+  console.error("❌ MONGO_URI missing");
   process.exit(1);
 }
 
-// ==========================
-// Routes Import
-// ==========================
+// ROUTES
 const appointmentRoutes = require("./routes/appointmentRoutes");
 const aiRoutes = require("./routes/aiRoutes");
-const voiceRoutes = require("./routes/voiceRoutes"); // ✅ STEP 3.2 ADDED
+const clinicRoutes = require("./routes/clinicRoutes");
 
-// ==========================
-// Basic Routes
-// ==========================
-
-// Root route
 app.get("/", (req, res) => {
-  res.send("SmileFlow API is running 🚀");
+  res.send("SmileFlow API running 🚀");
 });
 
-// Health check route
 app.get("/health", (req, res) => {
-  res.json({
-    status: "ok",
-    service: "SmileFlow Backend",
-    time: new Date().toISOString()
-  });
+  res.json({ status: "ok" });
 });
 
-// ==========================
-// API ROUTES
-// ==========================
-
-// Web booking system
+// 🔥 ROUTE REGISTRATION
 app.use("/api/appointments", appointmentRoutes);
-
-// AI receptionist (chat)
 app.use("/api/ai", aiRoutes);
+app.use("/api/clinics", clinicRoutes);
 
-// 📞 Voice receptionist (phone calls)
-app.use("/api/voice", voiceRoutes); // ✅ STEP 3.2 ADDED
-
-// ==========================
-// Database Connection
-// ==========================
+// DB
 mongoose
   .connect(process.env.MONGO_URI)
   .then(() => {
-    console.log("✅ MongoDB connected");
+    console.log("✅ Mongo connected");
 
     const PORT = process.env.PORT || 10000;
 
     app.listen(PORT, () => {
-      console.log(`🚀 Server running on port ${PORT}`);
+      console.log(`🚀 Server running on ${PORT}`);
     });
   })
   .catch((err) => {
-    console.error("❌ MongoDB connection failed:", err);
+    console.error("❌ DB error:", err);
     process.exit(1);
   });
 
-// ==========================
-// Global Error Handler
-// ==========================
+// GLOBAL ERROR
 app.use((err, req, res, next) => {
-  console.error("❌ Server Error:", err);
+  console.error(err);
 
   res.status(500).json({
     success: false,
