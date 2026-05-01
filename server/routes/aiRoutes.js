@@ -1,81 +1,135 @@
+
 const express = require("express");
 const router = express.Router();
 const Appointment = require("../models/Appointment");
 
 /**
- * 🤖 AI RECEPTIONIST (TEXT VERSION v1)
- * Input: natural language message
- * Output: booking or response
+ * 🧠 AI AGENT (SaaS VERSION)
  */
 
 router.post("/chat", async (req, res) => {
   try {
-    const { message } = req.body;
+    const { message, clinicId } = req.body;
 
-    if (!message) {
+    if (!message || !clinicId) {
       return res.status(400).json({
         success: false,
-        message: "Message is required"
+        reply: "Missing message or clinicId"
       });
     }
 
-    const text = message.toLowerCase();
+    const response = await fetch(
+      "https://api.openai.com/v1/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`
+        },
+        body: JSON.stringify({
+          model: "gpt-4o-mini",
+          messages: [
+            {
+              role: "system",
+              content: `
+You are a SaaS AI receptionist for dental clinics.
 
-    // 🧠 SIMPLE EXTRACTION (MVP AI LOGIC)
-    const dateMatch = text.match(/\d{4}-\d{2}-\d{2}/);
-    const timeMatch = text.match(/\d{1,2}:\d{2}/);
+Return ONLY JSON:
 
-    const date = dateMatch?.[0];
-    const time = timeMatch?.[0];
+{
+  "tool": "create_appointment | ask_question | reject",
+  "data": {
+    "date_text": "",
+    "time_text": "",
+    "reason": ""
+  },
+  "message": ""
+}
 
-    if (!date || !time) {
+Rules:
+- Use natural language (tomorrow, next Friday, etc.)
+- Do NOT format dates
+- If missing info → ask_question
+- If valid → create_appointment
+`
+            },
+            {
+              role: "user",
+              content: message
+            }
+          ]
+        })
+      }
+    );
+
+    const data = await response.json();
+    const content = data?.choices?.[0]?.message?.content;
+
+    if (!content) {
       return res.json({
         success: false,
-        reply: "Please send date in YYYY-MM-DD and time like 14:30"
+        reply: "AI failed"
       });
     }
 
-    // ❌ BLOCK PAST BOOKINGS
-    const now = new Date();
-    const selected = new Date(`${date}T${time}`);
+    let parsed;
 
-    if (selected < now) {
+    try {
+      parsed = JSON.parse(content);
+    } catch {
       return res.json({
         success: false,
-        reply: "You cannot book past time slots."
+        reply: "Invalid AI response"
       });
     }
 
-    // ❌ SLOT CHECK
-    const existing = await Appointment.findOne({ date, time });
+    const { tool, data: info, message: aiMessage } = parsed;
 
-    if (existing) {
+    // ASK QUESTION
+    if (tool === "ask_question") {
       return res.json({
         success: false,
-        reply: "This slot is already booked."
+        reply: aiMessage
       });
     }
 
-    // ✅ CREATE BOOKING
-    const appointment = await Appointment.create({
-      name: "AI Patient",
-      phone: "AI",
-      email: "",
-      date,
-      time,
-      reason: "Booked via AI receptionist"
-    });
+    // REJECT
+    if (tool === "reject") {
+      return res.json({
+        success: false,
+        reply: aiMessage
+      });
+    }
+
+    // CREATE APPOINTMENT
+    if (tool === "create_appointment") {
+      const appointment = await Appointment.create({
+        clinicId,
+        name: "AI Patient",
+        phone: "AI",
+        date: info?.date_text || "TBD",
+        time: info?.time_text || "TBD",
+        reason: info?.reason || "General"
+      });
+
+      return res.json({
+        success: true,
+        reply: "Appointment booked",
+        appointment
+      });
+    }
 
     return res.json({
-      success: true,
-      reply: `Booked successfully for ${date} at ${time}`,
-      appointment
+      success: false,
+      reply: "Unknown tool"
     });
 
   } catch (err) {
+    console.error(err);
+
     return res.status(500).json({
       success: false,
-      reply: "AI error"
+      reply: "Server error"
     });
   }
 });
