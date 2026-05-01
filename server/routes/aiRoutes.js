@@ -1,11 +1,6 @@
-
 const express = require("express");
 const router = express.Router();
 const Appointment = require("../models/Appointment");
-
-/**
- * 🧠 AI AGENT (SaaS VERSION)
- */
 
 router.post("/chat", async (req, res) => {
   try {
@@ -32,10 +27,11 @@ router.post("/chat", async (req, res) => {
             {
               role: "system",
               content: `
-You are a SaaS AI receptionist for dental clinics.
+You are an AI receptionist for a dental clinic.
 
-Return ONLY JSON:
+Return ONLY valid JSON. No extra text.
 
+Schema:
 {
   "tool": "create_appointment | ask_question | reject",
   "data": {
@@ -47,10 +43,10 @@ Return ONLY JSON:
 }
 
 Rules:
-- Use natural language (tomorrow, next Friday, etc.)
-- Do NOT format dates
 - If missing info → ask_question
-- If valid → create_appointment
+- If booking → create_appointment
+- If unsafe → reject
+- Use natural language dates like "tomorrow"
 `
             },
             {
@@ -63,29 +59,35 @@ Rules:
     );
 
     const data = await response.json();
-    const content = data?.choices?.[0]?.message?.content;
 
-    if (!content) {
+    // 🧠 SAFETY CHECK 1
+    if (!data?.choices?.[0]?.message?.content) {
+      console.error("OpenAI bad response:", data);
+
       return res.json({
         success: false,
-        reply: "AI failed"
+        reply: "AI service unavailable"
       });
     }
 
+    const content = data.choices[0].message.content;
+
     let parsed;
 
+    // 🧠 SAFETY CHECK 2 (VERY IMPORTANT)
     try {
       parsed = JSON.parse(content);
-    } catch {
+    } catch (err) {
+      console.error("JSON parse failed:", content);
+
       return res.json({
         success: false,
-        reply: "Invalid AI response"
+        reply: content // fallback: show raw AI text
       });
     }
 
     const { tool, data: info, message: aiMessage } = parsed;
 
-    // ASK QUESTION
     if (tool === "ask_question") {
       return res.json({
         success: false,
@@ -93,7 +95,6 @@ Rules:
       });
     }
 
-    // REJECT
     if (tool === "reject") {
       return res.json({
         success: false,
@@ -101,7 +102,6 @@ Rules:
       });
     }
 
-    // CREATE APPOINTMENT
     if (tool === "create_appointment") {
       const appointment = await Appointment.create({
         clinicId,
@@ -114,22 +114,22 @@ Rules:
 
       return res.json({
         success: true,
-        reply: "Appointment booked",
+        reply: "Appointment booked successfully",
         appointment
       });
     }
 
     return res.json({
       success: false,
-      reply: "Unknown tool"
+      reply: "Unknown AI action"
     });
 
   } catch (err) {
-    console.error(err);
+    console.error("AI ERROR:", err);
 
     return res.status(500).json({
       success: false,
-      reply: "Server error"
+      reply: "AI service error"
     });
   }
 });
