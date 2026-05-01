@@ -18,7 +18,7 @@ router.post("/book", async (req, res) => {
   try {
     const { name, phone, email, date, time, reason } = req.body;
 
-    // 🔴 1. BASIC VALIDATION
+    // 🔴 VALIDATION
     if (!name || !phone || !date || !time) {
       return res.status(400).json({
         success: false,
@@ -26,7 +26,7 @@ router.post("/book", async (req, res) => {
       });
     }
 
-    // 🔴 2. BLOCK PAST DATE/TIME
+    // 🔴 DATE/TIME VALIDATION
     const now = new Date();
     const selectedDateTime = new Date(`${date}T${time}`);
 
@@ -37,6 +37,7 @@ router.post("/book", async (req, res) => {
       });
     }
 
+    // 🚨 IMPORTANT FIX: STOP EXECUTION HERE
     if (selectedDateTime < now) {
       return res.status(400).json({
         success: false,
@@ -44,7 +45,7 @@ router.post("/book", async (req, res) => {
       });
     }
 
-    // 🔴 3. CHECK SLOT CONFLICT
+    // 🔴 SLOT CHECK
     const existing = await Appointment.findOne({ date, time });
 
     if (existing) {
@@ -54,7 +55,7 @@ router.post("/book", async (req, res) => {
       });
     }
 
-    // 🔴 4. CREATE APPOINTMENT
+    // 🔴 CREATE APPOINTMENT
     const appointment = await Appointment.create({
       name,
       phone,
@@ -89,7 +90,6 @@ router.get("/", async (req, res) => {
 
     return res.json({
       success: true,
-      count: appointments.length,
       appointments
     });
 
