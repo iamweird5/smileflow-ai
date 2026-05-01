@@ -29,6 +29,7 @@ if (!process.env.MONGO_URI) {
 // Routes Import
 // ==========================
 const appointmentRoutes = require("./routes/appointmentRoutes");
+const aiRoutes = require("./routes/aiRoutes");
 
 // ==========================
 // Routes
@@ -48,8 +49,15 @@ app.get("/health", (req, res) => {
   });
 });
 
-// Appointment routes
+// ==========================
+// API Routes
+// ==========================
+
+// Appointment routes (web booking + dashboard)
 app.use("/api/appointments", appointmentRoutes);
+
+// AI receptionist routes (chat booking)
+app.use("/api/ai", aiRoutes);
 
 // ==========================
 // Database Connection
