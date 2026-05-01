@@ -30,9 +30,10 @@ if (!process.env.MONGO_URI) {
 // ==========================
 const appointmentRoutes = require("./routes/appointmentRoutes");
 const aiRoutes = require("./routes/aiRoutes");
+const voiceRoutes = require("./routes/voiceRoutes"); // ✅ STEP 3.2 ADDED
 
 // ==========================
-// Routes
+// Basic Routes
 // ==========================
 
 // Root route
@@ -50,14 +51,17 @@ app.get("/health", (req, res) => {
 });
 
 // ==========================
-// API Routes
+// API ROUTES
 // ==========================
 
-// Appointment routes (web booking + dashboard)
+// Web booking system
 app.use("/api/appointments", appointmentRoutes);
 
-// AI receptionist routes (chat booking)
+// AI receptionist (chat)
 app.use("/api/ai", aiRoutes);
+
+// 📞 Voice receptionist (phone calls)
+app.use("/api/voice", voiceRoutes); // ✅ STEP 3.2 ADDED
 
 // ==========================
 // Database Connection
